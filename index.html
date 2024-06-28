@@ -1,0 +1,529 @@
+<!--
+    Project to control ADF4159 for UW Tacoma Research 2024
+-->
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ESP32 PLL Controller</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" type="image/png" href="favicon.ico">
+    <link rel="stylesheet" type="text/css" href="style.css">
+    <meta charset="UTF-8">
+</head>
+<body>
+    <div class="topnav">
+        <img width="50px" src="W.svg" class="center-image"></img>
+        <h1>ESP32 PLL Controller</h1>
+    </div>
+    <div class="content">
+        <div class="card-grid">
+            <div class="card">
+                <p>
+                    <button id="connectBleButton" class="connectButton"> Connect to BLE Device</button>
+                    <button id="disconnectBleButton" class="disconnectButton"> Disconnect BLE Device</button>
+                </p>
+                <p class="gray-label1">BLE state: <strong><span id="bleState" style="color:#d13a30;">Disconnected</span></strong><br>
+                   Last BT Received: <span id="timestamp"></span></p>
+            </div>
+        </div>
+        <div class="card-grid">
+            <div class="card">
+                <h2>Frequency:</h2>
+                <p class="reading"><span id="freqContainer">NaN</span> MHz</p>
+                <p> 
+                  <input class="form-control" id="frequencyInput" placeholder="Enter frequency in MHz">
+                  <button id="enterFreqButton" class="enterButton">Enter</button>
+                </p>
+                <p class="gray-label2"><br>
+                   Last frequency sent: <span id="freqSent"></span><br>
+                 </p>
+            </div>
+
+            <div class="card">
+                <h2>Controls</h2>
+                <button id="allRegButton" class="controlButton">Send All Registers</button>
+                <button id="freqRegButton" class="controlButton">Send Freq Registers</button><br>
+                <button id="defaultsButton" class="controlButton">Restore Defaults</button>
+                <button id="resetButton" class="controlButton">Reset ESP32</button><br>
+                <button id="bleDataOnButton" class="controlButton">BLE Data On</button>
+                <button id="bleDataOffButton" class="controlOffButton">BLE Data Off</button><br>
+                <button id="fastPinOnButton" class="controlButton">Fast Pins On</button>
+                <button id="fastPinOffButton" class="controlOffButton">Fast Pins Off</button><br>
+                <button id="LedOnButton" class="controlButton">Test LED: On</button>
+                <button id="LedOffButton" class="controlOffButton">Test LED: Off</button><br><br>
+                
+                <!-- p class="gray-label2">Last button value sent: <span id="valueSent"></span></p> -->
+            </div>
+            
+            <div class="card">
+                <p>
+                    <h2>Frequency Hopping</h2>
+                     <p class="reading3">Delay: <span id="delayContainer">NaN</span> ms</p>
+                          <input class="form-control" id="freqHopDelayInput" placeholder="Enter delay in milliseconds">
+                          <button id="enterHopDelayButton" class="enterButton">Enter</button>
+                     <p class="reading3">     Step: <span id="stepContainer" >NaN</span> MHz</p>
+                          <input class="form-control" id="freqHopStepInput" placeholder="Enter step in MHz">
+                          <button id="enterHopStepButton" class="enterButton">Enter</button>
+                      <p class="reading3">    Span: <span id="spanContainer" >NaN</span> MHz</p>
+                          <input class="form-control" id="freqHopSpanInput" placeholder="Enter span in MHz">
+                          <button id="enterHopSpanButton" class="enterButton">Enter</button><br>
+                     
+                          <button id="freqHopOnButton" class="controlButton">Freq Hop On</button>
+                          <button id="freqHopOffButton" class="controlOffButton">Freq Hop Off</button>
+                 </p>
+            </div>
+            
+            <div class="card">
+                <p>
+                  <h2>Register Values</h2>
+                 </p>
+                      <p class="reading3">
+                          Int Value: <span id="intContainer" >NaN</span><br>
+                          Frac Value: <span id="fracContainer" >NaN</span><br>
+                          </p><br>
+                      <p class="reading3">
+                          R0: <span id="r0Container" >NaN</span><br>
+                          R1: <span id="r1Container" >NaN</span><br>
+                          R2: <span id="r2Container" >NaN</span><br>
+                          R3: <span id="r3Container" >NaN</span><br>
+                          </p>
+                      <p class="reading3">
+                          R4.1: <span id="r41Container" >NaN</span><br>
+                          R4.2: <span id="r42Container" >NaN</span><br>
+                          R5.1: <span id="r51Container" >NaN</span><br>
+                          R5.2: <span id="r52Container" >NaN</span><br>
+                          R6.1: <span id="r61Container" >NaN</span><br>
+                          R6.2: <span id="r62Container" >NaN</span><br>
+                          R7: <span id="r7Container" >NaN</span><br>
+                  </p><br>
+            </div>
+        </div>
+    </div>
+    <div class="footer">
+        <p><h3>Created for UW Tacoma research 2024.</h3></p><br>
+    </div>
+</body>
+<script>
+    // DOM Elements
+    const connectButton = document.getElementById('connectBleButton');
+    const disconnectButton = document.getElementById('disconnectBleButton');
+    const bleStateContainer = document.getElementById('bleState');
+    const timestampContainer = document.getElementById('timestamp');
+    
+    const freqValue = document.getElementById('freqContainer');
+    const frequencyInput = document.getElementById("frequencyInput");
+    const enterFreqButton = document.getElementById("enterFreqButton");
+    const latestFreqSent = document.getElementById('freqSent');
+    
+    const allRegButton = document.getElementById('allRegButton');
+    const freqRegButton = document.getElementById('freqRegButton');
+    const defaultsButton = document.getElementById('defaultsButton');
+    const resetButton = document.getElementById('resetButton');
+    const bleDataOnButton = document.getElementById('bleDataOnButton');
+    const bleDataOffButton = document.getElementById('bleDataOffButton');
+    const fastPinOnButton = document.getElementById('fastPinOnButton');
+    const fastPinOffButton = document.getElementById('fastPinOffButton');
+    const LedOnButton = document.getElementById('LedOnButton');
+    const LedOffButton = document.getElementById('LedOffButton');
+    const latestValueSent = document.getElementById('valueSent');
+    
+    const delayValue = document.getElementById('delayContainer');
+    const delayInput = document.getElementById("freqHopDelayInput");
+    const enterDelayButton = document.getElementById("enterHopDelayButton");
+    const stepValue = document.getElementById('stepContainer');
+    const stepInput = document.getElementById("freqHopStepInput");
+    const enterStepButton = document.getElementById("enterHopStepButton");
+    const spanValue = document.getElementById('spanContainer');
+    const spanInput = document.getElementById("freqHopSpanInput");
+    const enterSpanButton = document.getElementById("enterHopSpanButton");
+    const hopOnButton = document.getElementById('freqHopOnButton');
+    const hopOffButton = document.getElementById('freqHopOffButton');
+    
+    const intValue = document.getElementById('intContainer');
+    const fracValue = document.getElementById('fracContainer');
+    const r0Value = document.getElementById('r0Container');
+    const r1Value = document.getElementById('r1Container');
+    const r2Value = document.getElementById('r2Container');
+    const r3Value = document.getElementById('r3Container');
+    const r41Value = document.getElementById('r41Container');
+    const r42Value = document.getElementById('r42Container');
+    const r51Value = document.getElementById('r51Container');
+    const r52Value = document.getElementById('r52Container');
+    const r61Value = document.getElementById('r61Container');
+    const r62Value = document.getElementById('r62Container');
+    const r7Value = document.getElementById('r7Container');
+
+
+    //Define BLE Device Specs
+    var deviceName ='PLL-ESP32';
+    var bleService = '50e12000-a21d-4471-b2f0-412147c8399e';
+    var frequencyCharacteristic= '50e12001-a21d-4471-b2f0-412147c8399e';
+    var controlCharacteristic = '50e12002-a21d-4471-b2f0-412147c8399e';
+    var hopCharacteristic = '50e12003-a21d-4471-b2f0-412147c8399e';
+    var registerCharacteristic = '50e12004-a21d-4471-b2f0-412147c8399e';
+    var ledCharacteristic = '50e12010-a21d-4471-b2f0-412147c8399e';
+
+    //Global Variables to Handle Bluetooth
+    var bleServer;
+    var bleServiceFound;
+    var frequencyCharacteristicFound;
+    
+    var frequencyMHz;
+    var delayms;
+
+    // Connect Button (search for BLE Devices only if BLE is available)
+    connectButton.addEventListener('click', (event) => {
+        if (isWebBluetoothEnabled()){
+            connectToDevice();
+        }
+    });
+
+    // Disconnect Button
+    disconnectButton.addEventListener('click', disconnectDevice);
+    
+    // Enter Frequency Button
+    enterFreqButton.addEventListener("click",  () => sendFrequency(frequencyInput.value));
+    
+    // Control Buttons
+    allRegButton.addEventListener('click', () => writeControlCharacteristic(1));
+    freqRegButton.addEventListener('click', () => writeControlCharacteristic(2));
+    defaultsButton.addEventListener('click', () => writeControlCharacteristic(3));
+    resetButton.addEventListener('click', () => writeControlCharacteristic(4));
+    bleDataOnButton.addEventListener('click', () => writeControlCharacteristic(5));
+    bleDataOffButton.addEventListener('click', () => writeControlCharacteristic(6));
+    fastPinOnButton.addEventListener('click', () => writeControlCharacteristic(7));
+    fastPinOffButton.addEventListener('click', () => writeControlCharacteristic(8));
+    
+    // Freq Hop Buttons
+    enterDelayButton.addEventListener('click', () => sendHopCommand(0,delayInput.value));
+    enterStepButton.addEventListener('click', () => sendHopCommand(1,stepInput.value));
+    enterSpanButton.addEventListener('click', () => sendHopCommand(2,spanInput.value));
+    hopOnButton.addEventListener('click', () => sendHopCommand(3,0));
+    hopOffButton.addEventListener('click', () => sendHopCommand(4,0));
+
+    // Write to the ESP32 LED Characteristic
+    LedOnButton.addEventListener('click', () => writeOnCharacteristic(1));
+    LedOffButton.addEventListener('click', () => writeOnCharacteristic(0));
+
+    // Check if BLE is available in your Browser
+    function isWebBluetoothEnabled() {
+        if (!navigator.bluetooth) {
+            console.log('Web Bluetooth API is not available in this browser!');
+            bleStateContainer.innerHTML = "Web Bluetooth API is not available in this browser/device!";
+            return false
+        }
+        console.log('Web Bluetooth API supported in this browser.');
+        return true
+    }
+
+    // Connect to BLE Device and Enable Notifications
+    function connectToDevice(){
+        console.log('Initializing Bluetooth...');
+        navigator.bluetooth.requestDevice({
+            filters: [{name: deviceName}],
+            optionalServices: [bleService]
+        })
+        .then(device => {
+            console.log('Device Selected:', device.name);
+            bleStateContainer.innerHTML = 'Connected to device ' + device.name;
+            bleStateContainer.style.color = "#24af37";
+            device.addEventListener('gattservicedisconnected', onDisconnected);
+            return device.gatt.connect();
+        })
+        .then(gattServer =>{
+            bleServer = gattServer;
+            console.log("Connected to GATT Server");
+            return bleServer.getPrimaryService(bleService);
+        })
+        .then(service => {
+            bleServiceFound = service;
+            console.log("Service discovered:", service.uuid);
+            return service.getCharacteristic(frequencyCharacteristic);
+        })
+        .then(characteristic => {
+            console.log("Characteristic discovered:", characteristic.uuid);
+            frequencyCharacteristicFound = characteristic;
+            characteristic.addEventListener('characteristicvaluechanged', handleFreqCharacteristicChange);
+            characteristic.startNotifications();
+            console.log("Freq Notifications Started.");
+            return characteristic.readValue();
+        })
+        .then(value => {
+            console.log("Read value: ", value);
+            const decodedValue = new TextDecoder().decode(value);
+            console.log("Decoded value: ", decodedValue);
+            frequencyMHz = decodedValue / 1000000;
+            freqValue.innerHTML = frequencyMHz;
+        })
+        
+        .then(() => {
+            return bleServiceFound.getCharacteristic(hopCharacteristic);
+        })
+        .then(characteristic => {
+            console.log("Characteristic discovered:", characteristic.uuid);
+            registerCharacteristicFound = characteristic;
+            characteristic.addEventListener('characteristicvaluechanged', handleFreqhopCharacteristicChange);
+            characteristic.startNotifications();
+            console.log("Freq Hop Notifications Started.");
+            //return characteristic.readValue();
+        })
+        
+        .then(() => {
+            return bleServiceFound.getCharacteristic(registerCharacteristic);
+        })
+        
+        .then(characteristic => {
+            console.log("Characteristic discovered:", characteristic.uuid);
+            registerCharacteristicFound = characteristic;
+            characteristic.addEventListener('characteristicvaluechanged', handleRegisterCharacteristicChange);
+            characteristic.startNotifications();
+            console.log("Reg Notifications Started.");
+            //return characteristic.readValue();
+        })
+        
+        .catch(error => {
+            console.log('Error: ', error);
+        })
+    }
+
+    function onDisconnected(event){
+        console.log('Device Disconnected:', event.target.device.name);
+        bleStateContainer.innerHTML = "Device disconnected";
+        bleStateContainer.style.color = "#d13a30";
+
+        connectToDevice();
+    }
+
+    function handleFreqCharacteristicChange(event){
+        const newValueReceived = new TextDecoder().decode(event.target.value);
+      //  console.log("Characteristic freq value changed: ", newValueReceived);
+        frequencyMHz = newValueReceived / 1000000;
+        freqValue.innerHTML = frequencyMHz;
+        timestampContainer.innerHTML = getDateTime();
+    }
+    
+
+    function handleRegisterCharacteristicChange(event){
+        const value = event.target.value;
+      //  console.log("Characteristic register values changed");
+        const dataArray = new Uint8Array(value.buffer);
+        var tempContainer = dataArray[0] | (dataArray[1] << 8) | (dataArray[2] << 16) | (dataArray[3] << 24);
+        intValue.innerHTML = (tempContainer >>> 0);
+        
+        tempContainer = dataArray[4] | (dataArray[5] << 8) | (dataArray[6] << 16) | (dataArray[7] << 24);
+        fracValue.innerHTML = (tempContainer >>> 0);
+        
+        // additional data looped to display as hex values
+        const valueOffsets = [8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48]; // Start indexes for each chunk of 4 bytes
+        for (let i = 0; i < valueOffsets.length; i++) {
+            const startIndex = valueOffsets[i];
+
+            // Combine bytes into a temporary 32-bit unsigned integer
+            const tempContainer = 
+                    (dataArray[startIndex] << 0) |
+                    (dataArray[startIndex + 1] << 8) |
+                    (dataArray[startIndex + 2] << 16) |
+                    (dataArray[startIndex + 3] << 24);
+            const hexValue =  '0x' + ('00000000' + (tempContainer >>> 0).toString(16).toUpperCase()).slice(-8);
+              
+              
+             // Update corresponding HTML element with hexadecimal formatted value
+            switch (i) {
+                case 0:
+                    r0Value.innerHTML = hexValue;
+                    break;
+                case 1:
+                    r1Value.innerHTML = hexValue;
+                    break;
+                case 2:
+                    r2Value.innerHTML = hexValue;
+                    break;
+                case 3:
+                    r3Value.innerHTML = hexValue;
+                    break;
+                case 4:
+                    r41Value.innerHTML = hexValue;
+                    break;
+                case 5:
+                    r42Value.innerHTML = hexValue;
+                    break;
+                case 6:
+                    r51Value.innerHTML = hexValue;
+                    break;
+                case 7:
+                    r52Value.innerHTML = hexValue;
+                    break;
+                case 8:
+                    r61Value.innerHTML = hexValue;
+                    break;
+                case 9:
+                    r62Value.innerHTML = hexValue;
+                    break;
+                case 10:
+                    r7Value.innerHTML = hexValue;
+                    break;
+                default:
+                    break;
+            }
+        }
+    }
+    
+    
+    function handleFreqhopCharacteristicChange(event){
+        const value = event.target.value;
+      //  console.log("Characteristic register values changed");
+        const dataArray = new Uint8Array(value.buffer);
+        var tempContainer = dataArray[0] | (dataArray[1] << 8) | (dataArray[2] << 16) | (dataArray[3] << 24);
+        delayValue.innerHTML = (tempContainer >>> 0) / 1000;
+        
+        tempContainer = dataArray[4] | (dataArray[5] << 8) | (dataArray[6] << 16) | (dataArray[7] << 24);
+        stepValue.innerHTML = (tempContainer >>> 0) / 1000000;
+        
+        tempContainer = dataArray[8] | (dataArray[9] << 8) | (dataArray[10] << 16) | (dataArray[11] << 24);
+        spanValue.innerHTML = (tempContainer >>> 0) / 1000000;
+        
+    }
+    
+    
+     function sendFrequency(value) {
+        if (bleServer && bleServer.connected) {
+            bleServiceFound.getCharacteristic(frequencyCharacteristic)
+            .then(characteristic => {
+                value = value * 1000000;
+                console.log("Found the frequency characteristic: ", characteristic.uuid);
+                const data = new Uint8Array([value, value >> 8, value >> 16, value >> 24]);
+                console.log("Value in data container:", data[3], data[2], data[1], data[0]);
+                return characteristic.writeValue(data);
+            })
+            .then(() => {
+                latestFreqSent.innerHTML = value;
+                console.log("Value written to frequency characteristic:", value);
+            })
+            .catch(error => {
+                console.error("Error writing to the frequency characteristic: ", error);
+            });
+        } else {
+            console.error ("Bluetooth is not connected. Cannot write to characteristic.")
+            window.alert("Bluetooth is not connected. Cannot write to characteristic. \n Connect to BLE first!")
+        }
+ 
+    }
+    
+    function sendHopCommand(index, value) {
+        if (bleServer && bleServer.connected) {
+            bleServiceFound.getCharacteristic(hopCharacteristic)
+            .then(characteristic => {
+                //delay
+                if (index == 0) {
+                    value = value * 1000; //convert from ms to us
+
+                 // Step and Span   
+                } else if (index == 1 || index == 2) { 
+                    value = value * 1000000; //convert from MHz to Hz
+
+                } // off and on indexes keep 0 value 
+          
+                console.log("Found the hop characteristic: ", characteristic.uuid);
+                const data = new Uint8Array([index, value, value >> 8, value >> 16, value >> 24]);
+                console.log("Value in data container:", data[0], data[1], data[2], data[3], data[4]);
+                return characteristic.writeValue(data);
+                
+            })
+            .catch(error => {
+                console.error("Error writing to the hop characteristic: ", error);
+            });
+        } else {
+            console.error ("Bluetooth is not connected. Cannot write to characteristic.")
+            window.alert("Bluetooth is not connected. Cannot write to characteristic. \n Connect to BLE first!")
+        }
+ 
+    }
+
+    function writeControlCharacteristic(value){
+        if (bleServer && bleServer.connected) {
+            bleServiceFound.getCharacteristic(controlCharacteristic)
+            .then(characteristic => {
+                console.log("Found the control characteristic: ", characteristic.uuid);
+                const data = new Uint8Array([value]);
+                return characteristic.writeValue(data);
+            })
+            .then(() => {
+                latestValueSent.innerHTML = value;
+                console.log("Value written to control characteristic:", value);
+            })
+            .catch(error => {
+                console.error("Error writing to the control characteristic: ", error);
+            });
+        } else {
+            console.error ("Bluetooth is not connected. Cannot write to characteristic.")
+            window.alert("Bluetooth is not connected. Cannot write to characteristic. \n Connect to BLE first!")
+        }
+    }
+    
+    function writeOnCharacteristic(value){
+        if (bleServer && bleServer.connected) {
+            bleServiceFound.getCharacteristic(ledCharacteristic)
+            .then(characteristic => {
+                console.log("Found the LED characteristic: ", characteristic.uuid);
+                const data = new Uint8Array([value]);
+                return characteristic.writeValue(data);
+            })
+            .then(() => {
+                latestValueSent.innerHTML = value;
+                console.log("Value written to LEDcharacteristic:", value);
+            })
+            .catch(error => {
+                console.error("Error writing to the LED characteristic: ", error);
+            });
+        } else {
+            console.error ("Bluetooth is not connected. Cannot write to characteristic.")
+            window.alert("Bluetooth is not connected. Cannot write to characteristic. \n Connect to BLE first!")
+        }
+    }
+
+    function disconnectDevice() {
+        console.log("Disconnect Device.");
+        if (bleServer && bleServer.connected) {
+            if (frequencyCharacteristicFound) {
+                frequencyCharacteristicFound.stopNotifications()
+                    .then(() => {
+                        console.log("Notifications Stopped");
+                        return bleServer.disconnect();
+                    })
+                    .then(() => {
+                        console.log("Device Disconnected");
+                        bleStateContainer.innerHTML = "Device Disconnected";
+                        bleStateContainer.style.color = "#d13a30";
+
+                    })
+                    .catch(error => {
+                        console.log("An error occurred:", error);
+                    });
+            } else {
+                console.log("No characteristic found to disconnect.");
+            }
+        } else {
+            // Throw an error if Bluetooth is not connected
+            console.error("Bluetooth is not connected.");
+            window.alert("Bluetooth is not connected.")
+        }
+    }
+
+    function getDateTime() {
+        var currentdate = new Date();
+        var day = ("00" + currentdate.getDate()).slice(-2); // Convert day to string and slice
+        var month = ("00" + (currentdate.getMonth() + 1)).slice(-2);
+        var year = currentdate.getFullYear();
+        var hours = ("00" + currentdate.getHours()).slice(-2);
+        var minutes = ("00" + currentdate.getMinutes()).slice(-2);
+        var seconds = ("00" + currentdate.getSeconds()).slice(-2);
+
+        var datetime = day + "/" + month + "/" + year + " at " + hours + ":" + minutes + ":" + seconds;
+        return datetime;
+    }
+
+
+</script>
+
+</html>
